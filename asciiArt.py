@@ -1,22 +1,84 @@
+import sys, random, argparse
 from PIL import Image
 import numpy as np
-im = Image.open("ascii-pineapple.jpg")
-ASCII_CHARS = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+import math
+gscale1 = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,`'."
+gscale2 = " .:-=+*#%@"
+MAX_PIXEL_VALUE = 255
 
-def get_pixelMatrix(img) :
-    pixels = list(img.getdata())
-    return [pixels[i:i+img.width] for i in range(0,len(pixels),img.width)]
+def getAverageL(image):
+    im = np.array(image)
+    w,h = im.shape
+    return np.average(im.reshape(w*h))
+
+def convertImageToAscii(fileName,cols,scale):
+
+    global gscale1, gscale2, MAX_PIXEL_VALUE
+
+    image = Image.open(fileName).convert('L')
+    W,H = image.size[0],image.size[1]
+    print("Input image dimensions %d x %d " % (W,H))
+    w = W/cols
+    h = w/scale
+    rows = int(H/h)
+
+    print("cols: %d, rows: %d" %(cols,rows))
+    print("tile dimensions: %d x %d" %(w,h))
+
+    if cols > W or rows > H :
+        print("Image too small for specified cols")
+        exit(0)
+
+    aimg = []
+    for j in range(rows):
+        y1 = int(j*h)
+        y2 = int((j+1)*h)
+        if j == rows-1:
+            y2 = H
+        aimg.append("")
+        for i in range(cols):
+            x1 = int(i*w)
+            x2 = int((i+1)*w)
+            if i == cols - 1:
+                x2 = W
+            img = image.crop((x1,y1,x2,y2))
+            avg = int(getAverageL(img))
+
+            gsval = gscale1[int((avg*len(gscale1))/MAX_PIXEL_VALUE)]
+
+            aimg[j] += gsval
+    return aimg
+
+def main():
+    descStr = "This program converts an image into ASCII art"
+    parser = argparse.ArgumentParser(description=descStr)
+    parser.add_argument('--file', dest='imgFile', required=True)
+    parser.add_argument('--scale',dest='scale',required=False)
+    parser.add_argument('--out',dest='outFile',required=False)
+    parser.add_argument('--cols',dest='cols',required=False)
 
 
-def get_brightnessMatrix(matrix):
-    new_matrix = []
-    for x in range(len(matrix)):
-        result = [sum(y)/ len(y) for y in matrix[x]]
-    new_matrix.append(result)
-    return new_matrix
+    args = parser.parse_args()
 
-pixels = get_pixelMatrix(im)
+    imgFile = args.imgFile
+    outFile = 'out.txt'
+    if args.outFile:
+        outFile = args.outFile
+    scale = 0.43
+    if args.scale:
+        scale = float(args.scale)
+    cols = 80
+    if args.cols:
+        cols = int(args.cols)
+    print ('generating ASCII art...')
+    aimg = convertImageToAscii(imgFile,cols,scale)
 
-brightness_pixels = get_brightnessMatrix(pixels)
+    f = open(outFile,'w')
+    for row in aimg:
+        f.write(row +'\n')
+    f.close()
 
-print(brightness_pixels)
+    print("Asci Art written to %s" % outFile)
+
+if __name__ == '__main__':
+    main()
